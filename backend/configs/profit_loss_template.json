@@ -1,0 +1,45 @@
+{
+  "report_name": "Profit & Loss Statement",
+  "sections": [
+    {
+      "section_name": "REVENUE",
+      "section_id": "revenue_section",
+      "lines": [
+        {"line_id": "sales", "name": "Sales Revenue"}
+      ],
+      "total_line": {"line_id": "total_revenue", "name": "Total Revenue"}
+    },
+    {
+      "section_name": "COST OF SALES",
+      "section_id": "cost_of_sales_section",
+      "lines": [
+        {"line_id": "cost_of_sales", "name": "Cost of Sales"}
+      ],
+      "total_line": {"line_id": "total_cost_of_sales", "name": "Total Cost of Sales"}
+    },
+    {
+      "section_name": "GROSS PROFIT",
+      "section_id": "gross_profit_section",
+      "calculation": "total_revenue - total_cost_of_sales",
+      "total_line": {"line_id": "gross_profit", "name": "Gross Profit"}
+    },
+    {
+      "section_name": "OPERATING EXPENSES",
+      "section_id": "operating_expenses_section",
+      "lines": [
+        {"line_id": "admin_expenses", "name": "Administrative Expenses"},
+        {"line_id": "IT_expenses", "name": "IT Expenses"},
+        {"line_id": "Professional_fees", "name": "Professional Fees"},
+        {"line_id": "Sales_expenses", "name": "Sales Expenses"},
+        {"line_id": "Export_expenses", "name": "Export Expenses"}
+      ],
+      "total_line": {"line_id": "total_operating_expenses", "name": "Total Operating Expenses"}
+    },
+    {
+      "section_name": "NET PROFIT",
+      "section_id": "net_profit_section",
+      "calculation": "gross_profit - total_operating_expenses",
+      "total_line": {"line_id": "net_profit", "name": "Net Profit"}
+    }
+  ]
+}

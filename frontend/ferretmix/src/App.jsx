@@ -1,35 +1,81 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useState } from 'react';
+import { testConnection } from './services/api';
+import FileUpload from './components/FileUpload';
+import GLMappingTool from './components/GLMappingTool';
+import ProfitLossReport from './components/ProfitLossReport';
+import BalanceSheetReport from './components/BalanceSheetReport';
+import './App.css';
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [currentView, setCurrentView] = useState('upload');
+  const [apiStatus, setApiStatus] = useState('Not tested');
+
+  const handleTestConnection = async () => {
+    try {
+      setApiStatus('Testing...');
+      const result = await testConnection();
+      setApiStatus(`✅ Success: ${result.status}`);
+    } catch (error) {
+      setApiStatus(`❌ Failed: ${error.message}`);
+    }
+  };
+
+  const navButtonStyle = (isActive) => ({
+    marginRight: '10px', 
+    padding: '10px 15px',
+    backgroundColor: isActive ? '#007bff' : '#6c757d',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer'
+  });
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <div className="App">
+      <header className="App-header">
+        <h1>Financial Reporting System</h1>
+        
+        {/* Navigation */}
+        <div style={{ margin: '20px 0' }}>
+          <button 
+            onClick={() => setCurrentView('upload')}
+            style={navButtonStyle(currentView === 'upload')}
+          >
+            Upload TB
+          </button>
+          <button 
+            onClick={() => setCurrentView('mapping')}
+            style={navButtonStyle(currentView === 'mapping')}
+          >
+            Setup Mappings
+          </button>
+          <button 
+            onClick={() => setCurrentView('profit-loss')}
+            style={navButtonStyle(currentView === 'profit-loss')}
+          >
+            P&L Report
+          </button>
+          <button 
+            onClick={() => setCurrentView('balance-sheet')}
+            style={navButtonStyle(currentView === 'balance-sheet')}
+          >
+            Balance Sheet
+          </button>
+          <button onClick={handleTestConnection} style={{ padding: '10px 15px' }}>
+            Test API
+          </button>
+        </div>
+
+        <p>API Status: {apiStatus}</p>
+
+        {/* Content */}
+        {currentView === 'upload' && <FileUpload />}
+        {currentView === 'mapping' && <GLMappingTool />}
+        {currentView === 'profit-loss' && <ProfitLossReport />}
+        {currentView === 'balance-sheet' && <BalanceSheetReport />}
+      </header>
+    </div>
+  );
 }
 
-export default App
+export default App;

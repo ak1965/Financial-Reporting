@@ -1,0 +1,50 @@
+{
+  "report_name": "Balance Sheet",
+  "sections": [
+    {
+      "section_name": "ASSETS",
+      "section_id": "assets_section",
+      "subsections": [
+        {
+          "subsection_name": "Current Assets",
+          "lines": [
+            {"line_id": "stock", "name": "Stock/Inventory"},
+            {"line_id": "debtors", "name": "Debtors"}
+          ],
+          "total_line": {"line_id": "total_current_assets", "name": "Total Current Assets"}
+        },
+        {
+          "subsection_name": "Fixed Assets",
+          "lines": [
+            {"line_id": "land_buildings", "name": "Land & Buildings"},
+            {"line_id": "plant_machinery", "name": "Plant & Machinery"}
+          ],
+          "total_line": {"line_id": "total_fixed_assets", "name": "Total Fixed Assets"}
+        }
+      ],
+      "total_line": {"line_id": "total_assets", "name": "TOTAL ASSETS"}
+    },
+    {
+      "section_name": "LIABILITIES & EQUITY",
+      "section_id": "liabilities_equity_section",
+      "subsections": [
+        {
+          "subsection_name": "Current Liabilities",
+          "lines": [
+            {"line_id": "creditors", "name": "Creditors"}
+          ],
+          "total_line": {"line_id": "total_current_liabilities", "name": "Total Current Liabilities"}
+        },
+        {
+          "subsection_name": "Equity",
+          "lines": [
+            {"line_id": "equity", "name": "Share Capital"},
+            {"line_id": "reserves", "name": "Reserves"}
+          ],
+          "total_line": {"line_id": "total_equity", "name": "Total Equity"}
+        }
+      ],
+      "total_line": {"line_id": "total_liab_equity", "name": "TOTAL LIABILITIES & EQUITY"}
+    }
+  ]
+}

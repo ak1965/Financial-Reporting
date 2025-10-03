@@ -1,17 +1,18 @@
 from flask import Flask
 from flask_cors import CORS
-from config import config
+from config import get_config
 import os
+from routes.mappings import mappings_bp
 
 def create_app(config_name=None):
-    if config_name is None:
-        config_name = os.environ.get('FLASK_ENV', 'default')
-    
     app = Flask(__name__)
-    app.config.from_object(config[config_name])
+    
+    # Load configuration
+    config_obj = get_config(config_name)
+    app.config.from_object(config_obj)
     
     # Enable CORS for React frontend
-    CORS(app)
+    CORS(app, origins=app.config['CORS_ORIGINS'])
     
     # Create upload directory if it doesn't exist
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -22,13 +23,15 @@ def create_app(config_name=None):
     
     app.register_blueprint(upload_bp, url_prefix='/api')
     app.register_blueprint(reports_bp, url_prefix='/api')
+    app.register_blueprint(mappings_bp, url_prefix='/api') 
     
     @app.route('/')
     def health_check():
-        return {'status': 'Flask backend is running!'}
+        return {'status': 'Flask backend is running!', 'env': app.config['FLASK_ENV']}
     
     return app
 
 if __name__ == '__main__':
     app = create_app()
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get('FLASK_PORT', 5000))
+    app.run(debug=True, port=port, host='0.0.0.0')
