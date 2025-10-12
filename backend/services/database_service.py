@@ -130,20 +130,38 @@ def get_trial_balance_gl_codes(upload_id):
     finally:
         conn.close()
 
-def get_existing_mappings(report_type):
-    """Get existing GL mappings for a report type"""
+def get_existing_gl_mappings(report_type):
+    """Get existing GL code mappings (what's already mapped)"""
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
             query = """
             SELECT gl_code, line_id, sign_multiplier
-            FROM gl_report_mapping 
+            FROM gl_report_mapping
             WHERE report_type = %s
             """
             cursor.execute(query, (report_type,))
             return cursor.fetchall()
     except Exception as e:
         raise Exception(f"Failed to get existing mappings: {str(e)}")
+    finally:
+        conn.close()
+        
+def get_available_report_lines(report_type):
+    """Get available report lines for dropdown options"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            query = """
+            SELECT section_name, line_id, line_name, sign_multiplier
+            FROM report_line_definitions
+            WHERE report_type = %s
+            ORDER BY display_order
+            """
+            cursor.execute(query, (report_type,))
+            return cursor.fetchall()
+    except Exception as e:
+        raise Exception(f"Failed to get report lines: {str(e)}")
     finally:
         conn.close()
 

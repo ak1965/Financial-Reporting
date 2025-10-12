@@ -64,7 +64,7 @@ const GLMappingTool = () => {
 
   const fetchExistingMappings = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/mappings/${reportType}`);
+      const response = await fetch(`http://localhost:5000/api/mappings/mappings/${reportType}`);
       const data = await response.json();
       const mappingsObj = {};
       data.mappings?.forEach(mapping => {
