@@ -202,8 +202,8 @@ def delete_gl_mapping(gl_code, report_type):
     finally:
         conn.close()
 
-def get_available_periods():
-    """Get list of available reporting periods"""
+def get_available_periods(company):
+    """Get list of available reporting periods for a specific company"""
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
@@ -211,15 +211,37 @@ def get_available_periods():
             SELECT DISTINCT period_end_date
             FROM trial_balance_uploads 
             WHERE processing_status = 'complete'
+            AND company = %s
             ORDER BY period_end_date DESC
             """
-            cursor.execute(query)
+            cursor.execute(query, (company,))
             results = cursor.fetchall()
             return [row['period_end_date'].isoformat() for row in results]
     except Exception as e:
         raise Exception(f"Failed to get available periods: {str(e)}")
     finally:
         conn.close()
+
+def get_available_companies():
+    """Get list of available companies"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            query = """
+            SELECT DISTINCT company
+            FROM trial_balance_uploads 
+            WHERE processing_status = 'complete'
+            ORDER BY company DESC
+            """
+            cursor.execute(query)
+            results = cursor.fetchall()
+            return [row['company'] for row in results]
+    except Exception as e:
+        raise Exception(f"Failed to get available companies: {str(e)}")
+    finally:
+        conn.close()
+
+
 
 def get_report_data(report_type, period_end_date):
     """Get aggregated data for report generation"""

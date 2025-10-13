@@ -6,57 +6,74 @@ const ProfitLossReport = () => {
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [selectedCompany, setSelectedCompany] = useState(''); // Changed from companySelected
+  const [availableCompanies, setAvailableCompanies] = useState([]);
 
   useEffect(() => {
-    fetchAvailablePeriods();
+    fetchAvailableCompanies();
   }, []);
 
+  // Fetch periods when company is selected
+  useEffect(() => {
+    if (selectedCompany) {
+      fetchAvailablePeriods();
+    }
+  }, [selectedCompany]);
+
   const fetchAvailablePeriods = async () => {
+  try {
+    const response = await fetch(`http://localhost:5000/api/reports/available-periods?company=${selectedCompany}`);
+    const data = await response.json();
+    setAvailablePeriods(data.periods || []);
+  } catch (error) {
+    setError('Failed to fetch available periods');
+  }
+};
+
+  const fetchAvailableCompanies = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/reports/available-periods');
+      const response = await fetch('http://localhost:5000/api/reports/available-companies');
       const data = await response.json();
-      setAvailablePeriods(data.periods || []);
+      setAvailableCompanies(data.companies);
     } catch (error) {
-      setError('Failed to fetch available periods');
+      setError('Failed to fetch available companies');
     }
   };
 
   const generateReport = async () => {
-  if (!selectedPeriod) {
-    setError('Please select a period');
-    return;
-  }
-
-  setLoading(true);
-  setError('');
-
-  try {
-    const response = await fetch(`http://localhost:5000/api/reports/profit-loss?period_end_date=${selectedPeriod}`);
-    const data = await response.json();
-    
-    // ADD THIS DEBUGGING
-    console.log('=== BACKEND RESPONSE DEBUG ===');
-    console.log('Response status:', response.status);
-    console.log('Full data:', data);
-    console.log('Has data property:', 'data' in data);
-    console.log('Has summary property:', 'summary' in data);
-    console.log('Has error property:', 'error' in data);
-    if (data.error) {
-      console.log('Backend error message:', data.error);
+    if (!selectedPeriod) {
+      setError('Please select a period');
+      return;
     }
-    console.log('===============================');
-    
-    if (response.ok) {
-      setReportData(data);
-    } else {
-      setError(data.error || 'Failed to generate report');
+
+    if (!selectedCompany) {
+      setError('Please select a company');
+      return;
     }
-  } catch (error) {
-    setError('Failed to generate report: ' + error.message);
-  } finally {
-    setLoading(false);
-  }
-};
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/reports/profit-loss?period_end_date=${selectedPeriod}&company=${selectedCompany}`);
+      const data = await response.json();
+      
+      console.log('=== BACKEND RESPONSE DEBUG ===');
+      console.log('Response status:', response.status);
+      console.log('Full data:', data);
+      console.log('===============================');
+      
+      if (response.ok) {
+        setReportData(data);
+      } else {
+        setError(data.error || 'Failed to generate report');
+      }
+    } catch (error) {
+      setError('Failed to generate report: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const formatAmount = (amount) => {
     if (amount === null || amount === undefined) return '';
@@ -113,43 +130,61 @@ const ProfitLossReport = () => {
     <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
       <h2>Profit & Loss Statement</h2>
       
-      {/* Period Selection */}
+      {/* Company and Period Selection */}
       <div style={{ marginBottom: '30px', display: 'flex', gap: '20px', alignItems: 'end' }}>
         <div>
-          <label>Select Period:</label>
+          <label>Select Company: </label>
           <select 
-            value={selectedPeriod} 
-            onChange={(e) => setSelectedPeriod(e.target.value)}
+            value={selectedCompany}
             style={{ marginLeft: '10px', padding: '8px', minWidth: '200px' }}
+            onChange={(e) => setSelectedCompany(e.target.value)}
           >
-            <option value="">Choose Period...</option>
-            {availablePeriods.map(period => (
-              <option key={period} value={period}>
-                {new Date(period).toLocaleDateString('en-US', { 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
-                })}
+            <option value="">Choose Company...</option>
+            {availableCompanies.map((company, index) => (
+              <option key={index} value={company}>
+                {company}
               </option>
             ))}
           </select>
         </div>
-
-        <button 
-          onClick={generateReport}
-          disabled={!selectedPeriod || loading}
-          style={{
-            padding: '8px 20px',
-            backgroundColor: selectedPeriod && !loading ? '#007bff' : '#ccc',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: selectedPeriod && !loading ? 'pointer' : 'not-allowed'
-          }}
-        >
-          {loading ? 'Generating...' : 'Generate Report'}
-        </button>
+        
+        {selectedCompany && (
+          <div>
+            <label>Select Period:</label>
+            <select 
+              value={selectedPeriod} 
+              onChange={(e) => setSelectedPeriod(e.target.value)}
+              style={{ marginLeft: '10px', padding: '8px', minWidth: '200px' }}
+            >
+              <option value="">Choose Period...</option>
+              {availablePeriods.map(period => (
+                <option key={period} value={period}>
+                  {new Date(period).toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
+
+      <button 
+        onClick={generateReport}
+        disabled={!selectedPeriod || !selectedCompany || loading}
+        style={{
+          padding: '8px 20px',
+          backgroundColor: selectedPeriod && selectedCompany && !loading ? '#007bff' : '#ccc',
+          color: 'white',
+          border: 'none',
+          borderRadius: '4px',
+          cursor: selectedPeriod && selectedCompany && !loading ? 'pointer' : 'not-allowed'
+        }}
+      >
+        {loading ? 'Generating...' : 'Generate Report'}
+      </button>
 
       {/* Error Display */}
       {error && (
