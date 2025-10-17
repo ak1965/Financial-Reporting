@@ -3,6 +3,8 @@ from psycopg2.extras import RealDictCursor
 import os
 from datetime import datetime
 
+# try this 
+
 def get_db_connection():
     """Get database connection"""
     try:
