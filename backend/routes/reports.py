@@ -75,7 +75,7 @@ def get_available_periods_route():
 
 @reports_bp.route('/reports/available-companies', methods=['GET'])
 def get_available_companies_route():
-    """Get list of available reporting periods"""
+    """Get list of available companies"""
     try:
         
         companies = get_available_companies()

@@ -5,6 +5,7 @@ import GLMappingTool from './components/GLMappingTool';
 import ProfitLossReport from './components/ProfitLossReport';
 import BalanceSheetReport from './components/BalanceSheetReport';
 import './App.css';
+import DeleteTB from './components/DeleteTB';
 
 function App() {
   const [currentView, setCurrentView] = useState('upload');
@@ -44,6 +45,12 @@ function App() {
             Upload TB
           </button>
           <button 
+            onClick={() => setCurrentView('delete')}
+            style={navButtonStyle(currentView === 'delete')}
+          >
+            Delete TB
+          </button>
+          <button 
             onClick={() => setCurrentView('mapping')}
             style={navButtonStyle(currentView === 'mapping')}
           >
@@ -73,6 +80,7 @@ function App() {
         {currentView === 'mapping' && <GLMappingTool />}
         {currentView === 'profit-loss' && <ProfitLossReport />}
         {currentView === 'balance-sheet' && <BalanceSheetReport />}
+        {currentView === 'delete' && <DeleteTB />}
       </header>
     </div>
   );
