@@ -39,7 +39,7 @@ export default function DeleteTB() {
     }
   };
 
-  const generateReport = async () => {
+  const deleteTB = async () => {
     if (!selectedPeriod || !selectedCompany) {
       setError('Please select both company and period');
       return;
@@ -50,7 +50,7 @@ export default function DeleteTB() {
 
     try {
       // Add your delete/report generation logic here
-      const response = await fetch(`http://localhost:5000/api/reports/delete?company=${selectedCompany}&period=${selectedPeriod}`, {
+      const response = await fetch(`http://localhost:5000/api/tb/delete?company=${selectedCompany}&period=${selectedPeriod}`, {
         method: 'DELETE'
       });
       const data = await response.json();
@@ -116,7 +116,7 @@ export default function DeleteTB() {
       </div>
 
       <button 
-        onClick={generateReport}
+        onClick={deleteTB}
         disabled={!selectedPeriod || !selectedCompany || loading}
         style={{
           padding: '8px 20px',

@@ -68,9 +68,9 @@ function App() {
           >
             Balance Sheet
           </button>
-          <button onClick={handleTestConnection} style={{ padding: '10px 15px' }}>
+          {/* <button onClick={handleTestConnection} style={{ padding: '10px 15px' }}>
             Test API
-          </button>
+          </button> */}
         </div>
 
         <p>API Status: {apiStatus}</p>

@@ -12,7 +12,12 @@ def create_app(config_name=None):
     app.config.from_object(config_obj)
     
     # Enable CORS for React frontend
-    CORS(app, origins=app.config['CORS_ORIGINS'])
+    # Enable CORS for React frontend
+    CORS(app, 
+     resources={r"/api/*": {"origins": app.config['CORS_ORIGINS']}},
+     supports_credentials=True,
+     allow_headers=["Content-Type", "Authorization"],
+     methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
     
     # Create upload directory if it doesn't exist
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)

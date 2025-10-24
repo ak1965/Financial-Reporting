@@ -42,22 +42,28 @@ def update_upload_status(upload_id, status, error_message=None):
     finally:
         conn.close()
 
-def save_complete_trial_balance(upload_id, filename, period_end_date, df):
+def save_complete_trial_balance(upload_id, filename, period_end_date, df, company):
     """Save both upload record and data in a single transaction"""
     conn = get_db_connection()
     try:
         with conn.cursor() as cursor:
-            # Start transaction
-            cursor.execute("BEGIN;")
+            # Calculate row count
+            row_count = len(df)
             
-            # 1. Save upload record as 'processing'
+            # 1. Save upload record with ALL columns
             upload_query = """
-            INSERT INTO trial_balance_uploads 
-            (upload_id, filename, upload_date, period_end_date, row_count, processing_status)
-            VALUES (%s, %s, %s, %s, %s, %s)
+                INSERT INTO trial_balance_uploads 
+                (upload_id, filename, upload_date, period_end_date, uploaded_by, processing_status, row_count, company)
+                VALUES (%s, %s, NOW(), %s, %s, %s, %s, %s)
             """
             cursor.execute(upload_query, (
-                upload_id, filename, datetime.now(), period_end_date, len(df), 'processing'
+                upload_id, 
+                filename, 
+                period_end_date, 
+                'system',  # or get from request.user if you have authentication
+                'complete', 
+                row_count, 
+                company
             ))
             
             # 2. Aggregate duplicate GL codes
@@ -73,25 +79,21 @@ def save_complete_trial_balance(upload_id, filename, period_end_date, df):
             ]
             
             data_query = """
-            INSERT INTO trial_balance_data (upload_id, gl_code, account_name, amount)
-            VALUES (%s, %s, %s, %s)
+                INSERT INTO trial_balance_data (upload_id, gl_code, account_name, amount)
+                VALUES (%s, %s, %s, %s)
             """
             cursor.executemany(data_query, data_tuples)
             
-            # 4. Update status to 'complete'
-            status_query = "UPDATE trial_balance_uploads SET processing_status = 'complete' WHERE upload_id = %s"
-            cursor.execute(status_query, (upload_id,))
-            
             # Commit everything together
-            cursor.execute("COMMIT;")
+            conn.commit()
             
-            return {
-                'rows_processed': len(data_tuples),
-                'period_end_date': period_end_date
-            }
+        return {
+            'rows_processed': len(data_tuples),
+            'period_end_date': period_end_date
+        }
             
     except Exception as e:
-        cursor.execute("ROLLBACK;")
+        conn.rollback()
         raise Exception(f"Failed to save trial balance: {str(e)}")
     finally:
         conn.close()
@@ -201,6 +203,41 @@ def delete_gl_mapping(gl_code, report_type):
     except Exception as e:
         conn.rollback()
         raise Exception(f"Failed to delete mapping: {str(e)}")
+    finally:
+        conn.close()
+
+def delete_tb_by_company_period(company, period):
+    """Delete a trial balance by company and period"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            # First, find the upload_id
+            query_find = """
+                SELECT upload_id 
+                FROM trial_balance_uploads 
+                WHERE company = %s AND period_end_date = %s
+            """
+            cursor.execute(query_find, (company, period))
+            result = cursor.fetchone()
+            
+            if not result:
+                raise Exception(f"No trial balance found for {company} on {period}")
+            
+            upload_id = result[0]
+            
+            # Then delete from trial_balance_data using the upload_id
+            query_delete = "DELETE FROM trial_balance_data WHERE upload_id = %s"
+            cursor.execute(query_delete, (upload_id,))
+            
+            # Optionally, also delete from trial_balance_uploads
+            query_delete_upload = "DELETE FROM trial_balance_uploads WHERE upload_id = %s"
+            cursor.execute(query_delete_upload, (upload_id,))
+            
+            conn.commit()
+            return True
+    except Exception as e:
+        conn.rollback()
+        raise Exception(f"Failed to delete trial balance: {str(e)}")
     finally:
         conn.close()
 

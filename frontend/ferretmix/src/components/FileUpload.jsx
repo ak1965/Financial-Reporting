@@ -4,6 +4,10 @@ const FileUpload = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadStatus, setUploadStatus] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [company, setCompany] = useState('');
+  const [error, setError] = useState('');
+  const [uploadResult, setUploadResult] = useState(null);
+  
 
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
@@ -22,42 +26,49 @@ const FileUpload = () => {
     }
   };
 
+  const updateCompany = (e)=> {
+    setCompany(e.target.value)
+  }
+
   const handleUpload = async () => {
     if (!selectedFile) {
-      setUploadStatus('❌ Please select a file first');
+      setError('Please select a file');
+      return;
+    }
+
+    if (!company) {
+      setError('Please enter a company name');
       return;
     }
 
     setIsUploading(true);
-    setUploadStatus('📤 Uploading file...');
+    setError('');
 
     const formData = new FormData();
     formData.append('file', selectedFile);
+    formData.append('company', company);  // Add company to formData
 
     try {
       const response = await fetch('http://localhost:5000/api/upload', {
         method: 'POST',
-        body: formData,
+        body: formData
       });
 
-      const result = await response.json();
+  const data = await response.json();
 
-      if (response.ok) {
-        setUploadStatus(`✅ ${result.message}`);
-        // Reset the form
-        setSelectedFile(null);
-        // Reset file input
-        document.getElementById('fileInput').value = '';
-      } else {
-        setUploadStatus(`❌ Error: ${result.error}`);
-      }
-    } catch (error) {
-      setUploadStatus(`❌ Upload failed: ${error.message}`);
-    } finally {
-      setIsUploading(false);
+    if (response.ok) {
+      setUploadResult(data);
+      setSelectedFile(null);
+      setCompany('');  // Reset company after upload
+    } else {
+      setError(data.error || 'Upload failed');
     }
+  } catch (error) {
+    setError('Upload failed: ' + error.message);
+  } finally {
+    setIsUploading(false);
+  }
   };
-
   return (
     <div style={{ padding: '20px', border: '1px solid #ddd', borderRadius: '8px', margin: '20px' }}>
       <h3>Upload Trial Balance</h3>
@@ -92,12 +103,48 @@ const FileUpload = () => {
       >
         {isUploading ? 'Uploading...' : 'Upload File'}
       </button>
+      {selectedFile && (
+        <>
+          <label>Input Company</label>
+          <input
+            onChange={updateCompany}
+            value={company}
+          >
+
+          </input>
+        </>
+        )}
 
       {uploadStatus && (
         <div style={{ marginTop: '15px', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
           {uploadStatus}
         </div>
       )}
+      {error && (
+  <div style={{ 
+    color: 'red', 
+    backgroundColor: '#f8d7da', 
+    padding: '10px', 
+    borderRadius: '4px', 
+    marginBottom: '20px' 
+  }}>
+    {error}
+    {uploadResult && (
+  <div style={{ 
+    color: 'green', 
+    backgroundColor: '#d4edda', 
+    padding: '10px', 
+    borderRadius: '4px', 
+    marginTop: '20px' 
+  }}>
+    <p>✓ Upload successful!</p>
+    <p>File: {uploadResult.filename}</p>
+    <p>Company: {uploadResult.company}</p>
+    <p>Rows processed: {uploadResult.rows_processed}</p>
+  </div>
+)}
+  </div>
+)}
     </div>
   );
 };

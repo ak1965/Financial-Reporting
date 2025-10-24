@@ -11,6 +11,7 @@ def allowed_file(filename):
 
 @upload_bp.route('/upload', methods=['POST'])
 def upload_trial_balance():
+    # Validate file exists
     if 'file' not in request.files:
         return jsonify({'error': 'No file provided'}), 400
     
@@ -22,27 +23,33 @@ def upload_trial_balance():
     if not allowed_file(file.filename):
         return jsonify({'error': 'Invalid file type. Please upload .xlsx or .xls files'}), 400
     
+    # Validate company
+    company = request.form.get('company')
+    if not company:
+        return jsonify({'error': 'Company name required'}), 400
+    
+    # Initialize variables
     filepath = None
     upload_id = str(uuid.uuid4())
     
     try:
-        # Generate unique filename
+        # Save file temporarily
         filename = secure_filename(file.filename)
         filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], f"{upload_id}_{filename}")
-        
-        # Save file temporarily
         file.save(filepath)
         
-        # Process the Excel file - this now handles both upload record AND data
-        result = process_trial_balance_file(filepath, upload_id, filename)
+        # Process the Excel file with company parameter
+        result = process_trial_balance_file(filepath, upload_id, filename, company)
         
         # Clean up temporary file
-        os.remove(filepath)
+        if os.path.exists(filepath):
+            os.remove(filepath)
         
         return jsonify({
             'message': 'Trial balance processed successfully',
             'upload_id': upload_id,
             'filename': filename,
+            'company': company,
             'rows_processed': result['rows_processed']
         })
         
@@ -55,7 +62,28 @@ def upload_trial_balance():
         try:
             from services.database_service import update_upload_status
             update_upload_status(upload_id, 'failed', str(e))
-        except:
-            pass  # Don't fail if update fails
+        except Exception:
+            pass  # Don't fail if status update fails
         
         return jsonify({'error': f'Processing failed: {str(e)}'}), 500
+    
+@upload_bp.route('/tb/delete', methods=['DELETE'])
+def delete_trial_balance():
+    try:
+        company = request.args.get('company')
+        period = request.args.get('period')
+        
+        if not company or not period:
+            return jsonify({'error': 'Company and period required'}), 400
+        
+        from services.database_service import delete_tb_by_company_period
+        delete_tb_by_company_period(company, period)
+        
+        return jsonify({
+            'message': 'Trial balance deleted'
+        })
+    except Exception as e:
+        return jsonify({
+            'error': str(e)
+        }), 500
+    

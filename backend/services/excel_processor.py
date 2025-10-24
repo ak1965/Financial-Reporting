@@ -3,7 +3,7 @@ from datetime import datetime
 from services.database_service import save_complete_trial_balance
 
 
-def process_trial_balance_file(filepath, upload_id, original_filename):
+def process_trial_balance_file(filepath, upload_id, original_filename, company):
     """Process uploaded Excel trial balance file"""
     try:
         # Read and validate Excel file
@@ -12,13 +12,14 @@ def process_trial_balance_file(filepath, upload_id, original_filename):
         cleaned_data = clean_trial_balance_data(df, required_columns)
         period_end_date = extract_period_end_date(df)
         
-        # Save everything in one transaction (this replaces all the separate function calls)
-        result = save_complete_trial_balance(upload_id, original_filename, period_end_date, cleaned_data)
+        # Save everything in one transaction with company parameter
+        result = save_complete_trial_balance(upload_id, original_filename, period_end_date, cleaned_data, company)
         
         return {
             'success': True,
             'rows_processed': result['rows_processed'],
-            'period_end_date': result['period_end_date']
+            'period_end_date': result['period_end_date'],
+            'company': company
         }
         
     except Exception as e:
