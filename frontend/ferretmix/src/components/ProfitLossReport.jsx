@@ -6,14 +6,13 @@ const ProfitLossReport = () => {
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [selectedCompany, setSelectedCompany] = useState(''); // Changed from companySelected
+  const [selectedCompany, setSelectedCompany] = useState('');
   const [availableCompanies, setAvailableCompanies] = useState([]);
 
   useEffect(() => {
     fetchAvailableCompanies();
   }, []);
 
-  // Fetch periods when company is selected
   useEffect(() => {
     if (selectedCompany) {
       fetchAvailablePeriods();
@@ -21,14 +20,14 @@ const ProfitLossReport = () => {
   }, [selectedCompany]);
 
   const fetchAvailablePeriods = async () => {
-  try {
-    const response = await fetch(`http://localhost:5000/api/reports/available-periods?company=${selectedCompany}`);
-    const data = await response.json();
-    setAvailablePeriods(data.periods || []);
-  } catch (error) {
-    setError('Failed to fetch available periods');
-  }
-};
+    try {
+      const response = await fetch(`http://localhost:5000/api/reports/available-periods?company=${selectedCompany}`);
+      const data = await response.json();
+      setAvailablePeriods(data.periods || []);
+    } catch (error) {
+      setError('Failed to fetch available periods');
+    }
+  };
 
   const fetchAvailableCompanies = async () => {
     try {
@@ -127,7 +126,7 @@ const ProfitLossReport = () => {
   };
 
   return (
-    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
+    <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
       <h2>Profit & Loss Statement</h2>
       
       {/* Company and Period Selection */}
@@ -180,7 +179,8 @@ const ProfitLossReport = () => {
           color: 'white',
           border: 'none',
           borderRadius: '4px',
-          cursor: selectedPeriod && selectedCompany && !loading ? 'pointer' : 'not-allowed'
+          cursor: selectedPeriod && selectedCompany && !loading ? 'pointer' : 'not-allowed',
+          marginBottom: '20px'
         }}
       >
         {loading ? 'Generating...' : 'Generate Report'}
@@ -207,23 +207,45 @@ const ProfitLossReport = () => {
             <p>For the period ending {new Date(reportData.period_end_date).toLocaleDateString()}</p>
           </div>
 
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+            <thead>
+              <tr style={{ borderBottom: '2px solid #333', backgroundColor: '#f8f9fa' }}>
+                <th style={{ textAlign: 'left', padding: '10px', width: '25%' }}>Account</th>
+                <th style={{ textAlign: 'right', padding: '10px', width: '12.5%' }}>Actual</th>
+                <th style={{ textAlign: 'right', padding: '10px', width: '12.5%' }}>Budget</th>
+                <th style={{ textAlign: 'right', padding: '10px', width: '12.5%' }}>Prior Year</th>
+                <th style={{ textAlign: 'right', padding: '10px', width: '12.5%' }}>Actual YTD</th>
+                <th style={{ textAlign: 'right', padding: '10px', width: '12.5%' }}>Budget YTD</th>
+                <th style={{ textAlign: 'right', padding: '10px', width: '12.5%' }}>Prior Yr YTD</th>
+              </tr>
+            </thead>
             <tbody>
               {(reportData.data && Array.isArray(reportData.data) ? reportData.data : []).map((item, index) => (
                 <tr key={index} style={getRowStyle(item)}>
                   <td style={{ 
                     textAlign: 'left',
                     paddingLeft: `${item.indent_level * 20}px`,
-                    width: '70%'
+                    padding: '8px'
                   }}>
                     {item.name}
                   </td>
-                  <td style={{ 
-                    textAlign: 'right',
-                    fontFamily: 'monospace',
-                    width: '30%'
-                  }}>
-                    {formatAmount(item.amount)}
+                  <td style={{ textAlign: 'right', fontFamily: 'monospace', padding: '8px' }}>
+                    {formatAmount(item.amounts?.actual || item.amount)}
+                  </td>
+                  <td style={{ textAlign: 'right', fontFamily: 'monospace', padding: '8px' }}>
+                    {formatAmount(item.amounts?.budget)}
+                  </td>
+                  <td style={{ textAlign: 'right', fontFamily: 'monospace', padding: '8px' }}>
+                    {formatAmount(item.amounts?.prior_year)}
+                  </td>
+                  <td style={{ textAlign: 'right', fontFamily: 'monospace', padding: '8px' }}>
+                    {formatAmount(item.amounts?.actual_ytd)}
+                  </td>
+                  <td style={{ textAlign: 'right', fontFamily: 'monospace', padding: '8px' }}>
+                    {formatAmount(item.amounts?.budget_ytd)}
+                  </td>
+                  <td style={{ textAlign: 'right', fontFamily: 'monospace', padding: '8px' }}>
+                    {formatAmount(item.amounts?.prior_year_ytd)}
                   </td>
                 </tr>
               ))}
@@ -238,14 +260,39 @@ const ProfitLossReport = () => {
             borderRadius: '8px' 
           }}>
             <h4>Key Metrics</h4>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              <div>Revenue: {formatAmount(reportData.summary.total_revenue)}</div>
-              <div>Gross Profit: {formatAmount(reportData.summary.gross_profit)}</div>
-              <div>EBITDA: {formatAmount(reportData.summary.ebitda)}</div>
-              <div style={{ fontWeight: 'bold' }}>
-                Net Profit: {formatAmount(reportData.summary.net_profit)}
-              </div>
-            </div>
+            <table style={{ width: '100%', fontSize: '14px' }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: 'left', padding: '5px' }}>Metric</th>
+                  <th style={{ textAlign: 'right', padding: '5px' }}>Actual</th>
+                  <th style={{ textAlign: 'right', padding: '5px' }}>Budget</th>
+                  <th style={{ textAlign: 'right', padding: '5px' }}>Prior Year</th>
+                  <th style={{ textAlign: 'right', padding: '5px' }}>Actual YTD</th>
+                  <th style={{ textAlign: 'right', padding: '5px' }}>Budget YTD</th>
+                  <th style={{ textAlign: 'right', padding: '5px' }}>Prior Yr YTD</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={{ padding: '5px' }}>Revenue</td>
+                  <td style={{ textAlign: 'right', padding: '5px' }}>{formatAmount(reportData.summary?.total_revenue?.actual)}</td>
+                  <td style={{ textAlign: 'right', padding: '5px' }}>{formatAmount(reportData.summary?.total_revenue?.budget)}</td>
+                  <td style={{ textAlign: 'right', padding: '5px' }}>{formatAmount(reportData.summary?.total_revenue?.prior_year)}</td>
+                  <td style={{ textAlign: 'right', padding: '5px' }}>{formatAmount(reportData.summary?.total_revenue?.actual_ytd)}</td>
+                  <td style={{ textAlign: 'right', padding: '5px' }}>{formatAmount(reportData.summary?.total_revenue?.budget_ytd)}</td>
+                  <td style={{ textAlign: 'right', padding: '5px' }}>{formatAmount(reportData.summary?.total_revenue?.prior_year_ytd)}</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: '5px', fontWeight: 'bold' }}>Net Profit</td>
+                  <td style={{ textAlign: 'right', padding: '5px', fontWeight: 'bold' }}>{formatAmount(reportData.summary?.net_profit?.actual)}</td>
+                  <td style={{ textAlign: 'right', padding: '5px', fontWeight: 'bold' }}>{formatAmount(reportData.summary?.net_profit?.budget)}</td>
+                  <td style={{ textAlign: 'right', padding: '5px', fontWeight: 'bold' }}>{formatAmount(reportData.summary?.net_profit?.prior_year)}</td>
+                  <td style={{ textAlign: 'right', padding: '5px', fontWeight: 'bold' }}>{formatAmount(reportData.summary?.net_profit?.actual_ytd)}</td>
+                  <td style={{ textAlign: 'right', padding: '5px', fontWeight: 'bold' }}>{formatAmount(reportData.summary?.net_profit?.budget_ytd)}</td>
+                  <td style={{ textAlign: 'right', padding: '5px', fontWeight: 'bold' }}>{formatAmount(reportData.summary?.net_profit?.prior_year_ytd)}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       )}

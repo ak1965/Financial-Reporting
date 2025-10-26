@@ -1,6 +1,7 @@
 import json
 import os
 from services.database_service import get_report_data
+from services.database_service import get_report_data_ytd
 
 def load_report_template(report_type):
     """Load report template from JSON file"""
@@ -8,23 +9,46 @@ def load_report_template(report_type):
     with open(template_path, 'r') as file:
         return json.load(file)
 
-def generate_profit_loss_report(period_end_date):
-    """Generate detailed Profit & Loss report"""
+def generate_profit_loss_report(period_end_date, company):
+    """Generate detailed Profit & Loss report with Actual, Budget, Prior Year, and YTD columns"""
     try:
-        print(f"🔍 Starting P&L generation for {period_end_date}")
+        print(f"🔍 Starting P&L generation for {company} - {period_end_date}")
         
         # Load template
         template = load_report_template('profit_loss')
         print(f"✅ Template loaded: {template['report_name']}")
         
-        # Get data from database
-        line_data = get_report_data('profit_loss', period_end_date)
-        print(f"✅ Line data retrieved: {len(line_data)} items")
-        print(f"📊 Line data keys: {list(line_data.keys())}")
+        # Get data from database for all columns
+        actual_data = get_report_data('profit_loss', period_end_date, company, 'actual')
+        print(f"🔍 Actual data: {actual_data}")
+        
+        budget_data = get_report_data('profit_loss', period_end_date, company, 'budget')
+        print(f"🔍 Budget data: {budget_data}")
+        
+        prior_year_data = get_report_data('profit_loss', period_end_date, company, 'prior_year')
+        print(f"🔍 Prior year data: {prior_year_data}")
+        
+        actual_ytd_data = get_report_data_ytd('profit_loss', period_end_date, company, 'actual')
+        print(f"🔍 Actual YTD data: {actual_ytd_data}")
+        
+        budget_ytd_data = get_report_data_ytd('profit_loss', period_end_date, company, 'budget')
+        print(f"🔍 Budget YTD data: {budget_ytd_data}")
+        
+        prior_year_ytd_data = get_report_data_ytd('profit_loss', period_end_date, company, 'prior_year')
+        print(f"🔍 Prior year YTD data: {prior_year_ytd_data}")
+        
+        print(f"✅ Data retrieved for all 6 columns")
         
         # Build report structure
         report_lines = []
-        section_totals = {}
+        section_totals = {
+            'actual': {},
+            'budget': {},
+            'prior_year': {},
+            'actual_ytd': {},
+            'budget_ytd': {},
+            'prior_year_ytd': {}
+        }
 
         print(f"🔄 Processing {len(template['sections'])} sections...")
         
@@ -38,28 +62,59 @@ def generate_profit_loss_report(period_end_date):
             # Add section header
             report_lines.append({
                 'name': section['section_name'],
-                'amount': None,
+                'amounts': {
+                    'actual': None,
+                    'budget': None,
+                    'prior_year': None,
+                    'actual_ytd': None,
+                    'budget_ytd': None,
+                    'prior_year_ytd': None
+                },
                 'is_header': True,
                 'is_bold': True,
                 'indent_level': 0,
                 'type': 'section_header'
             })
             
-            # Add line items and calculate section total
-            section_total = 0
+            # Add line items and calculate section totals
+            section_total_actual = 0
+            section_total_budget = 0
+            section_total_prior_year = 0
+            section_total_actual_ytd = 0
+            section_total_budget_ytd = 0
+            section_total_prior_year_ytd = 0
             has_data = False
             
             for line in section['lines']:
-                line_amount = line_data.get(line['line_id'], 0)
-                if line_amount != 0:
-                    has_data = True
-                section_total += line_amount
+                line_actual = actual_data.get(line['line_id'], 0)
+                line_budget = budget_data.get(line['line_id'], 0)
+                line_prior_year = prior_year_data.get(line['line_id'], 0)
+                line_actual_ytd = actual_ytd_data.get(line['line_id'], 0)
+                line_budget_ytd = budget_ytd_data.get(line['line_id'], 0)
+                line_prior_year_ytd = prior_year_ytd_data.get(line['line_id'], 0)
                 
-                # Only show lines that have data or are commonly expected
-                if line_amount != 0 :
+                if any([line_actual != 0, line_budget != 0, line_prior_year != 0]):
+                    has_data = True
+                
+                section_total_actual += line_actual
+                section_total_budget += line_budget
+                section_total_prior_year += line_prior_year
+                section_total_actual_ytd += line_actual_ytd
+                section_total_budget_ytd += line_budget_ytd
+                section_total_prior_year_ytd += line_prior_year_ytd
+                
+                # Only show lines that have data
+                if any([line_actual != 0, line_budget != 0, line_prior_year != 0]):
                     report_lines.append({
                         'name': f"  {line['name']}",
-                        'amount': line_amount,
+                        'amounts': {
+                            'actual': line_actual,
+                            'budget': line_budget,
+                            'prior_year': line_prior_year,
+                            'actual_ytd': line_actual_ytd,
+                            'budget_ytd': line_budget_ytd,
+                            'prior_year_ytd': line_prior_year_ytd
+                        },
                         'is_header': False,
                         'is_bold': False,
                         'indent_level': 1,
@@ -68,10 +123,23 @@ def generate_profit_loss_report(period_end_date):
             
             # Add section total if there's data
             if has_data:
-                section_totals[section['total_line']['line_id']] = section_total
+                section_totals['actual'][section['total_line']['line_id']] = section_total_actual
+                section_totals['budget'][section['total_line']['line_id']] = section_total_budget
+                section_totals['prior_year'][section['total_line']['line_id']] = section_total_prior_year
+                section_totals['actual_ytd'][section['total_line']['line_id']] = section_total_actual_ytd
+                section_totals['budget_ytd'][section['total_line']['line_id']] = section_total_budget_ytd
+                section_totals['prior_year_ytd'][section['total_line']['line_id']] = section_total_prior_year_ytd
+                
                 report_lines.append({
                     'name': section['total_line']['name'],
-                    'amount': section_total,
+                    'amounts': {
+                        'actual': section_total_actual,
+                        'budget': section_total_budget,
+                        'prior_year': section_total_prior_year,
+                        'actual_ytd': section_total_actual_ytd,
+                        'budget_ytd': section_total_budget_ytd,
+                        'prior_year_ytd': section_total_prior_year_ytd
+                    },
                     'is_header': False,
                     'is_bold': True,
                     'indent_level': 0,
@@ -81,74 +149,86 @@ def generate_profit_loss_report(period_end_date):
             # Add blank line between sections
             report_lines.append({
                 'name': '',
-                'amount': None,
+                'amounts': {
+                    'actual': None,
+                    'budget': None,
+                    'prior_year': None,
+                    'actual_ytd': None,
+                    'budget_ytd': None,
+                    'prior_year_ytd': None
+                },
                 'is_header': False,
                 'is_bold': False,
                 'indent_level': 0,
                 'type': 'blank'
             })
         
-        # Calculate intermediate totals
-        gross_profit = section_totals.get('total_revenue', 0) - section_totals.get('total_cost_of_sales', 0)
-        section_totals['gross_profit'] = gross_profit
+        # Calculate intermediate totals for all columns
+        gross_profit_actual = section_totals['actual'].get('total_revenue', 0) - section_totals['actual'].get('total_cost_of_sales', 0)
+        gross_profit_budget = section_totals['budget'].get('total_revenue', 0) - section_totals['budget'].get('total_cost_of_sales', 0)
+        gross_profit_prior_year = section_totals['prior_year'].get('total_revenue', 0) - section_totals['prior_year'].get('total_cost_of_sales', 0)
+        gross_profit_actual_ytd = section_totals['actual_ytd'].get('total_revenue', 0) - section_totals['actual_ytd'].get('total_cost_of_sales', 0)
+        gross_profit_budget_ytd = section_totals['budget_ytd'].get('total_revenue', 0) - section_totals['budget_ytd'].get('total_cost_of_sales', 0)
+        gross_profit_prior_year_ytd = section_totals['prior_year_ytd'].get('total_revenue', 0) - section_totals['prior_year_ytd'].get('total_cost_of_sales', 0)
+        
+        section_totals['actual']['gross_profit'] = gross_profit_actual
+        section_totals['budget']['gross_profit'] = gross_profit_budget
+        section_totals['prior_year']['gross_profit'] = gross_profit_prior_year
+        section_totals['actual_ytd']['gross_profit'] = gross_profit_actual_ytd
+        section_totals['budget_ytd']['gross_profit'] = gross_profit_budget_ytd
+        section_totals['prior_year_ytd']['gross_profit'] = gross_profit_prior_year_ytd
         
         # Add Gross Profit line
         report_lines.append({
             'name': 'GROSS PROFIT',
-            'amount': gross_profit,
+            'amounts': {
+                'actual': gross_profit_actual,
+                'budget': gross_profit_budget,
+                'prior_year': gross_profit_prior_year,
+                'actual_ytd': gross_profit_actual_ytd,
+                'budget_ytd': gross_profit_budget_ytd,
+                'prior_year_ytd': gross_profit_prior_year_ytd
+            },
             'is_header': False,
             'is_bold': True,
             'indent_level': 0,
             'type': 'calculated_total'
         })
-        
-        report_lines.append({'name': '', 'amount': None, 'is_header': False, 'is_bold': False, 'indent_level': 0, 'type': 'blank'})
-        
-        # Calculate EBITDA (Earnings Before Interest, Tax, Depreciation, Amortization)
-        ebitda = gross_profit - section_totals.get('total_operating_expenses', 0)
-        
-        # Add EBITDA line
-        report_lines.append({
-            'name': 'EBITDA',
-            'amount': ebitda,
-            'is_header': False,
-            'is_bold': True,
-            'indent_level': 0,
-            'type': 'calculated_total'
-        })
-        
-        # Calculate Operating Profit (EBIT)
-        operating_profit = ebitda - section_totals.get('total_depreciation', 0)
         
         report_lines.append({
-            'name': 'OPERATING PROFIT (EBIT)',
-            'amount': operating_profit,
+            'name': '',
+            'amounts': {
+                'actual': None,
+                'budget': None,
+                'prior_year': None,
+                'actual_ytd': None,
+                'budget_ytd': None,
+                'prior_year_ytd': None
+            },
             'is_header': False,
-            'is_bold': True,
+            'is_bold': False,
             'indent_level': 0,
-            'type': 'calculated_total'
+            'type': 'blank'
         })
         
-        # Calculate Profit Before Tax
-        profit_before_tax = (operating_profit - 
-                           section_totals.get('total_financial_expenses', 0) - 
-                           section_totals.get('total_other_expenses', 0))
-        
-        report_lines.append({
-            'name': 'PROFIT BEFORE TAX',
-            'amount': profit_before_tax,
-            'is_header': False,
-            'is_bold': True,
-            'indent_level': 0,
-            'type': 'calculated_total'
-        })
-        
-        # Calculate Final Net Profit
-        net_profit = profit_before_tax - section_totals.get('total_tax_expenses', 0)
+        # Calculate Net Profit for all columns
+        net_profit_actual = gross_profit_actual - section_totals['actual'].get('total_operating_expenses', 0)
+        net_profit_budget = gross_profit_budget - section_totals['budget'].get('total_operating_expenses', 0)
+        net_profit_prior_year = gross_profit_prior_year - section_totals['prior_year'].get('total_operating_expenses', 0)
+        net_profit_actual_ytd = gross_profit_actual_ytd - section_totals['actual_ytd'].get('total_operating_expenses', 0)
+        net_profit_budget_ytd = gross_profit_budget_ytd - section_totals['budget_ytd'].get('total_operating_expenses', 0)
+        net_profit_prior_year_ytd = gross_profit_prior_year_ytd - section_totals['prior_year_ytd'].get('total_operating_expenses', 0)
         
         report_lines.append({
             'name': 'NET PROFIT',
-            'amount': net_profit,
+            'amounts': {
+                'actual': net_profit_actual,
+                'budget': net_profit_budget,
+                'prior_year': net_profit_prior_year,
+                'actual_ytd': net_profit_actual_ytd,
+                'budget_ytd': net_profit_budget_ytd,
+                'prior_year_ytd': net_profit_prior_year_ytd
+            },
             'is_header': False,
             'is_bold': True,
             'indent_level': 0,
@@ -161,12 +241,30 @@ def generate_profit_loss_report(period_end_date):
             'period_end_date': period_end_date,
             'data': report_lines,
             'summary': {
-                'total_revenue': section_totals.get('total_revenue', 0),
-                'gross_profit': gross_profit,
-                'ebitda': ebitda,
-                'operating_profit': operating_profit,
-                'profit_before_tax': profit_before_tax,
-                'net_profit': net_profit
+                'total_revenue': {
+                    'actual': section_totals['actual'].get('total_revenue', 0),
+                    'budget': section_totals['budget'].get('total_revenue', 0),
+                    'prior_year': section_totals['prior_year'].get('total_revenue', 0),
+                    'actual_ytd': section_totals['actual_ytd'].get('total_revenue', 0),
+                    'budget_ytd': section_totals['budget_ytd'].get('total_revenue', 0),
+                    'prior_year_ytd': section_totals['prior_year_ytd'].get('total_revenue', 0)
+                },
+                'gross_profit': {
+                    'actual': gross_profit_actual,
+                    'budget': gross_profit_budget,
+                    'prior_year': gross_profit_prior_year,
+                    'actual_ytd': gross_profit_actual_ytd,
+                    'budget_ytd': gross_profit_budget_ytd,
+                    'prior_year_ytd': gross_profit_prior_year_ytd
+                },
+                'net_profit': {
+                    'actual': net_profit_actual,
+                    'budget': net_profit_budget,
+                    'prior_year': net_profit_prior_year,
+                    'actual_ytd': net_profit_actual_ytd,
+                    'budget_ytd': net_profit_budget_ytd,
+                    'prior_year_ytd': net_profit_prior_year_ytd
+                }
             }
         }
         

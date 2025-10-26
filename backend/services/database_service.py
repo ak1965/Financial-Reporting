@@ -42,6 +42,83 @@ def update_upload_status(upload_id, status, error_message=None):
     finally:
         conn.close()
 
+def save_complete_trial_balance_multi_period(upload_id, filename, period_end_date, combined_data, company):
+    """Save trial balance with multiple periods and data types"""
+    print(f"🔍 Saving {len(combined_data)} rows to database")
+    print(f"🔍 Upload ID: {upload_id}")
+    print(f"🔍 Company: {company}")
+    print(f"🔍 Period end date: {period_end_date}")
+    
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            row_count = len(combined_data)
+            
+            # 1. Save upload record
+            upload_query = """
+                INSERT INTO trial_balance_uploads 
+                (upload_id, filename, upload_date, period_end_date, uploaded_by, processing_status, row_count, company)
+                VALUES (%s, %s, NOW(), %s, %s, %s, %s, %s)
+            """
+            cursor.execute(upload_query, (
+                upload_id, 
+                filename, 
+                period_end_date, 
+                'system', 
+                'complete', 
+                row_count, 
+                company
+            ))
+            
+            print(f"✅ Upload record saved")
+            
+            # 2. Save all trial balance data
+            data_query = """
+                INSERT INTO trial_balance_data 
+                (upload_id, gl_code, account_name, period_end_date, amount, data_type)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """
+            
+            data_tuples = [
+                (upload_id, row['gl_code'], row['account_name'], 
+                 row['period_end_date'], row['amount'], row['data_type'])
+                for row in combined_data
+            ]
+            
+            print(f"🔍 Created {len(data_tuples)} tuples to insert")
+            if data_tuples:
+                print(f"🔍 First tuple sample: {data_tuples[0]}")
+                print(f"🔍 Last tuple sample: {data_tuples[-1]}")
+            else:
+                print(f"⚠️ WARNING: No data tuples created!")
+            
+            if data_tuples:
+                cursor.executemany(data_query, data_tuples)
+                print(f"✅ Executed INSERT for {len(data_tuples)} rows")
+            else:
+                print(f"⚠️ Skipping INSERT - no data to insert")
+            
+            conn.commit()
+            print(f"✅ Transaction committed")
+            
+        # Count unique periods
+        periods_loaded = len(set(row['period_end_date'] for row in combined_data)) if combined_data else 0
+        
+        print(f"✅ Save complete. Periods loaded: {periods_loaded}")
+        
+        return {
+            'rows_processed': len(data_tuples),
+            'period_end_date': period_end_date,
+            'periods_loaded': periods_loaded
+        }
+            
+    except Exception as e:
+        conn.rollback()
+        print(f"❌ Error during save: {str(e)}")
+        raise Exception(f"Failed to save trial balance: {str(e)}")
+    finally:
+        conn.close()
+
 def save_complete_trial_balance(upload_id, filename, period_end_date, df, company):
     """Save both upload record and data in a single transaction"""
     conn = get_db_connection()
@@ -242,15 +319,20 @@ def delete_tb_by_company_period(company, period):
         conn.close()
 
 def get_available_periods(company):
-    """Get list of available reporting periods for a specific company"""
+    """Get list of available reporting periods for a specific company - ACTUAL data only"""
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
             query = """
             SELECT DISTINCT period_end_date
-            FROM trial_balance_uploads 
-            WHERE processing_status = 'complete'
-            AND company = %s
+            FROM trial_balance_data 
+            WHERE data_type = 'actual'
+            AND upload_id IN (
+                SELECT upload_id 
+                FROM trial_balance_uploads 
+                WHERE company = %s 
+                AND processing_status = 'complete'
+            )
             ORDER BY period_end_date DESC
             """
             cursor.execute(query, (company,))
@@ -282,7 +364,7 @@ def get_available_companies():
 
 
 
-def get_report_data(report_type, period_end_date):
+def get_report_data(report_type, period_end_date, company, data_type='actual'):
     """Get aggregated data for report generation"""
     conn = get_db_connection()
     try:
@@ -296,10 +378,12 @@ def get_report_data(report_type, period_end_date):
             JOIN trial_balance_uploads tbu ON tbd.upload_id = tbu.upload_id
             JOIN gl_report_mapping grm ON tbd.gl_code = grm.gl_code
             WHERE tbu.period_end_date = %s 
+            AND tbu.company = %s
+            AND tbd.data_type = %s
             AND grm.report_type = %s
             GROUP BY grm.line_id
             """
-            cursor.execute(query, (period_end_date, report_type))
+            cursor.execute(query, (period_end_date, company, data_type, report_type))
             results = cursor.fetchall()
             data = {row['line_id']: float(row['total_amount']) for row in results}
             
@@ -313,14 +397,16 @@ def get_report_data(report_type, period_end_date):
                 JOIN trial_balance_uploads tbu ON tbd.upload_id = tbu.upload_id
                 JOIN gl_report_mapping grm ON tbd.gl_code = grm.gl_code
                 WHERE tbu.period_end_date = %s 
+                AND tbu.company = %s
+                AND tbd.data_type = %s
                 AND grm.report_type = 'profit_loss'
                 """
-                cursor.execute(pl_query, (period_end_date,))
+                cursor.execute(pl_query, (period_end_date, company, data_type))
                 profit_result = cursor.fetchone()
                 net_profit = float(profit_result['net_profit']) if profit_result['net_profit'] else 0
                 
-                # Add profit to reserves (assuming reserves is line_id 3001 or similar)
-                reserves_line_id = 2600  # Update this to match your reserves line_id
+                # Add profit to reserves (assuming reserves is line_id 2600)
+                reserves_line_id = 2600
                 if reserves_line_id in data:
                     data[reserves_line_id] += net_profit
                 else:
@@ -330,5 +416,45 @@ def get_report_data(report_type, period_end_date):
                   
     except Exception as e:
         raise Exception(f"Failed to get report data: {str(e)}")
+    finally:
+        conn.close()
+
+def get_report_data_ytd(report_type, period_end_date, company, data_type='actual'):
+    """Get year-to-date aggregated data for report generation"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            # Calculate start of year from period_end_date
+            from datetime import datetime
+            if isinstance(period_end_date, str):
+                period_date = datetime.strptime(period_end_date, '%Y-%m-%d').date()
+            else:
+                period_date = period_end_date
+            
+            year_start = datetime(period_date.year, 1, 1).date()
+            
+            # Get YTD data (sum from start of year to period_end_date)
+            query = """
+            SELECT 
+                grm.line_id,
+                SUM(tbd.amount * grm.sign_multiplier) as total_amount
+            FROM trial_balance_data tbd
+            JOIN trial_balance_uploads tbu ON tbd.upload_id = tbu.upload_id
+            JOIN gl_report_mapping grm ON tbd.gl_code = grm.gl_code
+            WHERE tbd.period_end_date >= %s
+            AND tbd.period_end_date <= %s
+            AND tbu.company = %s
+            AND tbd.data_type = %s
+            AND grm.report_type = %s
+            GROUP BY grm.line_id
+            """
+            cursor.execute(query, (year_start, period_end_date, company, data_type, report_type))
+            results = cursor.fetchall()
+            data = {row['line_id']: float(row['total_amount']) for row in results}
+            
+            return data
+                  
+    except Exception as e:
+        raise Exception(f"Failed to get YTD report data: {str(e)}")
     finally:
         conn.close()

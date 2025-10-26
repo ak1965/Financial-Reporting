@@ -7,40 +7,25 @@ from services.database_service import get_available_companies
 reports_bp = Blueprint('reports', __name__)
 
 
+
 @reports_bp.route('/reports/profit-loss', methods=['GET'])
 def get_profit_loss():
-    print("🚨 === P&L ROUTE HIT ===")
-    print(f"📅 Request args: {request.args}")
-    print(f"📅 Period end date: {request.args.get('period_end_date')}")
-    
     try:
         period_end_date = request.args.get('period_end_date')
+        company = request.args.get('company')  # Get company parameter
+        
         if not period_end_date:
-            print("❌ No period_end_date provided")
-            return jsonify({'error': 'period_end_date parameter required'}), 400
+            return jsonify({'error': 'period_end_date is required'}), 400
         
-        print("📞 About to call generate_profit_loss_report...")
+        if not company:
+            return jsonify({'error': 'company is required'}), 400
         
-        # Test if import works
-        
-        print("✅ Import successful")
-        
-        report = generate_profit_loss_report(period_end_date)
-        print("✅ Report generated successfully")
+        from services.report_generator import generate_profit_loss_report
+        report = generate_profit_loss_report(period_end_date, company)  # Pass company
         
         return jsonify(report)
-        
-    except ImportError as e:
-        print(f"❌ IMPORT ERROR: {str(e)}")
-        return jsonify({'error': f'Import error: {str(e)}'}), 500
     except Exception as e:
-        print(f"❌ GENERAL ERROR: {str(e)}")
-        print(f"❌ Error type: {type(e)}")
-        import traceback
-        print(f"❌ Full traceback: {traceback.format_exc()}")
         return jsonify({'error': str(e)}), 500
-
-
 
 @reports_bp.route('/reports/balance-sheet', methods=['GET'])
 def generate_balance_sheet():
