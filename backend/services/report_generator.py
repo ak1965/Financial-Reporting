@@ -18,23 +18,23 @@ def generate_profit_loss_report(period_end_date, company):
         template = load_report_template('profit_loss')
         print(f"✅ Template loaded: {template['report_name']}")
         
-        # Get data from database for all columns
-        actual_data = get_report_data('profit_loss', period_end_date, company, 'actual')
+        # Get ALL data from database in ONE call
+        all_report_data = get_report_data('profit_loss', period_end_date, company)
+        print(f"🔍 Complete report data retrieved")
+        
+        # Extract each data type from the returned dictionary
+        actual_data = all_report_data['actual']
+        budget_data = all_report_data['budget']
+        prior_year_data = all_report_data['prior_year']
+        actual_ytd_data = all_report_data['ytd_actual']
+        budget_ytd_data = all_report_data['ytd_budget']
+        prior_year_ytd_data = all_report_data['prior_ytd']
+        
         print(f"🔍 Actual data: {actual_data}")
-        
-        budget_data = get_report_data('profit_loss', period_end_date, company, 'budget')
         print(f"🔍 Budget data: {budget_data}")
-        
-        prior_year_data = get_report_data('profit_loss', period_end_date, company, 'prior_year')
         print(f"🔍 Prior year data: {prior_year_data}")
-        
-        actual_ytd_data = get_report_data_ytd('profit_loss', period_end_date, company, 'actual')
         print(f"🔍 Actual YTD data: {actual_ytd_data}")
-        
-        budget_ytd_data = get_report_data_ytd('profit_loss', period_end_date, company, 'budget')
         print(f"🔍 Budget YTD data: {budget_ytd_data}")
-        
-        prior_year_ytd_data = get_report_data_ytd('profit_loss', period_end_date, company, 'prior_year')
         print(f"🔍 Prior year YTD data: {prior_year_ytd_data}")
         
         print(f"✅ Data retrieved for all 6 columns")
@@ -92,10 +92,21 @@ def generate_profit_loss_report(period_end_date, company):
                 line_actual_ytd = actual_ytd_data.get(line['line_id'], 0)
                 line_budget_ytd = budget_ytd_data.get(line['line_id'], 0)
                 line_prior_year_ytd = prior_year_ytd_data.get(line['line_id'], 0)
+    
+                # Check if ANY column has data (including YTD)
+                has_any_data = any([
+                    line_actual != 0,
+                    line_budget != 0,
+                    line_prior_year != 0,
+                    line_actual_ytd != 0,
+                    line_budget_ytd != 0,
+                    line_prior_year_ytd != 0
+                ])
+    
+                if has_any_data:
+                    has_data = True  # Mark section as having data
                 
-                if any([line_actual != 0, line_budget != 0, line_prior_year != 0]):
-                    has_data = True
-                
+                # Update section totals
                 section_total_actual += line_actual
                 section_total_budget += line_budget
                 section_total_prior_year += line_prior_year
@@ -103,8 +114,8 @@ def generate_profit_loss_report(period_end_date, company):
                 section_total_budget_ytd += line_budget_ytd
                 section_total_prior_year_ytd += line_prior_year_ytd
                 
-                # Only show lines that have data
-                if any([line_actual != 0, line_budget != 0, line_prior_year != 0]):
+                # Show line if it has data in ANY column
+                if has_any_data:
                     report_lines.append({
                         'name': f"  {line['name']}",
                         'amounts': {

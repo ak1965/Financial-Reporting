@@ -364,53 +364,227 @@ def get_available_companies():
 
 
 
-def get_report_data(report_type, period_end_date, company, data_type='actual'):
-    """Get aggregated data for report generation"""
+# def get_report_data(report_type, period_end_date, company, data_type='actual'):
+#     """Get aggregated data for report generation"""
+#     conn = get_db_connection()
+#     try:
+#         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+#             # Get the main report data
+#             query = """
+#             SELECT 
+#                 grm.line_id,
+#                 SUM(tbd.amount * grm.sign_multiplier) as total_amount
+#             FROM trial_balance_data tbd
+#             JOIN trial_balance_uploads tbu ON tbd.upload_id = tbu.upload_id
+#             JOIN gl_report_mapping grm ON tbd.gl_code = grm.gl_code
+#             WHERE tbd.period_end_date = %s 
+#             AND tbu.company = %s
+#             AND tbd.data_type = %s
+#             AND grm.report_type = %s
+#             GROUP BY grm.line_id
+#             """
+#             cursor.execute(query, (period_end_date, company, data_type, report_type))
+#             results = cursor.fetchall()
+#             data = {row['line_id']: float(row['total_amount']) for row in results}
+            
+#             # If this is a balance sheet, add P&L profit to reserves
+#             if report_type == 'balance_sheet':
+#                 # Get P&L profit
+#                 pl_query = """
+#                 SELECT 
+#                     SUM(tbd.amount * grm.sign_multiplier) as net_profit
+#                 FROM trial_balance_data tbd
+#                 JOIN trial_balance_uploads tbu ON tbd.upload_id = tbu.upload_id
+#                 JOIN gl_report_mapping grm ON tbd.gl_code = grm.gl_code
+#                 WHERE tbu.period_end_date = %s 
+#                 AND tbu.company = %s
+#                 AND tbd.data_type = %s
+#                 AND grm.report_type = 'profit_loss'
+#                 """
+#                 cursor.execute(pl_query, (period_end_date, company, data_type))
+#                 profit_result = cursor.fetchone()
+#                 net_profit = float(profit_result['net_profit']) if profit_result['net_profit'] else 0
+                
+#                 # Add profit to reserves (assuming reserves is line_id 2600)
+#                 reserves_line_id = 2600
+#                 if reserves_line_id in data:
+#                     data[reserves_line_id] += net_profit
+#                 else:
+#                     data[reserves_line_id] = net_profit
+            
+#             return data
+                  
+#     except Exception as e:
+#         raise Exception(f"Failed to get report data: {str(e)}")
+#     finally:
+#         conn.close()
+def get_report_data(report_type, period_end_date, company):
+    """Get complete report data with all columns for either P&L or Balance Sheet"""
     conn = get_db_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            # Get the main report data
-            query = """
-            SELECT 
-                grm.line_id,
-                SUM(tbd.amount * grm.sign_multiplier) as total_amount
-            FROM trial_balance_data tbd
-            JOIN trial_balance_uploads tbu ON tbd.upload_id = tbu.upload_id
-            JOIN gl_report_mapping grm ON tbd.gl_code = grm.gl_code
-            WHERE tbu.period_end_date = %s 
-            AND tbu.company = %s
-            AND tbd.data_type = %s
-            AND grm.report_type = %s
-            GROUP BY grm.line_id
-            """
-            cursor.execute(query, (period_end_date, company, data_type, report_type))
-            results = cursor.fetchall()
-            data = {row['line_id']: float(row['total_amount']) for row in results}
-            
-            # If this is a balance sheet, add P&L profit to reserves
-            if report_type == 'balance_sheet':
-                # Get P&L profit
-                pl_query = """
+            if report_type == 'profit_loss':
+                # P&L specific query - using data_type fields directly
+                query = """
                 SELECT 
-                    SUM(tbd.amount * grm.sign_multiplier) as net_profit
+                    grm.line_id,
+                    -- Current period actual
+                    SUM(CASE WHEN tbd.data_type = 'actual' 
+                        AND DATE_TRUNC('month', tbd.period_end_date) = DATE_TRUNC('month', %s::date)
+                        AND EXTRACT(YEAR FROM tbd.period_end_date) = EXTRACT(YEAR FROM %s::date)
+                        THEN tbd.amount * grm.sign_multiplier ELSE 0 END) as actual,
+                    -- Current period budget
+                    SUM(CASE WHEN tbd.data_type = 'budget' 
+                        AND DATE_TRUNC('month', tbd.period_end_date) = DATE_TRUNC('month', %s::date)
+                        AND EXTRACT(YEAR FROM tbd.period_end_date) = EXTRACT(YEAR FROM %s::date)
+                        THEN tbd.amount * grm.sign_multiplier ELSE 0 END) as budget,
+                    -- Prior year from database (looking for 2024 dates)
+                    SUM(CASE WHEN tbd.data_type = 'prior_year' 
+                        AND DATE_TRUNC('month', tbd.period_end_date) = DATE_TRUNC('month', %s::date - INTERVAL '1 year')
+                        AND EXTRACT(YEAR FROM tbd.period_end_date) = EXTRACT(YEAR FROM %s::date) - 1
+                        THEN tbd.amount * grm.sign_multiplier ELSE 0 END) as prior_year,
+                    -- YTD Actual
+                    SUM(CASE WHEN tbd.data_type = 'actual' 
+                        AND EXTRACT(YEAR FROM tbd.period_end_date) = EXTRACT(YEAR FROM %s::date)
+                        AND tbd.period_end_date <= %s::date
+                        THEN tbd.amount * grm.sign_multiplier ELSE 0 END) as ytd_actual,
+                    -- YTD Budget
+                    SUM(CASE WHEN tbd.data_type = 'budget' 
+                        AND EXTRACT(YEAR FROM tbd.period_end_date) = EXTRACT(YEAR FROM %s::date)
+                        AND tbd.period_end_date <= %s::date
+                        THEN tbd.amount * grm.sign_multiplier ELSE 0 END) as ytd_budget,
+                    -- Prior Year YTD from database (looking for 2024 dates)
+                    SUM(CASE WHEN tbd.data_type = 'prior_year' 
+                        AND EXTRACT(YEAR FROM tbd.period_end_date) = EXTRACT(YEAR FROM %s::date) - 1
+                        AND tbd.period_end_date <= %s::date - INTERVAL '1 year'
+                        THEN tbd.amount * grm.sign_multiplier ELSE 0 END) as prior_ytd
                 FROM trial_balance_data tbd
                 JOIN trial_balance_uploads tbu ON tbd.upload_id = tbu.upload_id
                 JOIN gl_report_mapping grm ON tbd.gl_code = grm.gl_code
-                WHERE tbu.period_end_date = %s 
-                AND tbu.company = %s
-                AND tbd.data_type = %s
+                WHERE tbu.company = %s
+                AND grm.report_type = %s
+                GROUP BY grm.line_id
+                """
+                cursor.execute(query, (
+                    period_end_date, period_end_date,  # actual
+                    period_end_date, period_end_date,  # budget
+                    period_end_date, period_end_date,  # prior_year (from data_type='prior_year')
+                    period_end_date, period_end_date,  # ytd_actual
+                    period_end_date, period_end_date,  # ytd_budget
+                    period_end_date, period_end_date,  # prior_ytd (from data_type='prior_year')
+                    company, report_type
+                ))
+                
+            elif report_type == 'balance_sheet':
+                # Balance Sheet query - no YTD needed, just point-in-time balances
+                query = """
+                SELECT 
+                    grm.line_id,
+                    -- Current period actual
+                    SUM(CASE WHEN tbd.data_type = 'actual' 
+                        AND tbd.period_end_date = %s::date 
+                        THEN tbd.amount * grm.sign_multiplier ELSE 0 END) as actual,
+                    -- Current period budget
+                    SUM(CASE WHEN tbd.data_type = 'budget' 
+                        AND tbd.period_end_date = %s::date 
+                        THEN tbd.amount * grm.sign_multiplier ELSE 0 END) as budget,
+                    -- Prior year same period
+                    SUM(CASE WHEN tbd.data_type = 'actual' 
+                        AND tbd.period_end_date = %s::date - INTERVAL '1 year'
+                        THEN tbd.amount * grm.sign_multiplier ELSE 0 END) as prior_year,
+                    -- Prior month actual (useful for balance sheet movements)
+                    SUM(CASE WHEN tbd.data_type = 'actual' 
+                        AND tbd.period_end_date = %s::date - INTERVAL '1 month'
+                        THEN tbd.amount * grm.sign_multiplier ELSE 0 END) as prior_month
+                FROM trial_balance_data tbd
+                JOIN trial_balance_uploads tbu ON tbd.upload_id = tbu.upload_id
+                JOIN gl_report_mapping grm ON tbd.gl_code = grm.gl_code
+                WHERE tbu.company = %s
+                AND grm.report_type = %s
+                GROUP BY grm.line_id
+                """
+                cursor.execute(query, (
+                    period_end_date, period_end_date, period_end_date, period_end_date,
+                    company, report_type
+                ))
+                
+                results = cursor.fetchall()
+                
+                # Add P&L profit to reserves for Balance Sheet
+                pl_query = """
+                SELECT 
+                    -- Current period actual profit
+                    SUM(CASE WHEN tbd.data_type = 'actual' 
+                        AND tbd.period_end_date = %s::date 
+                        THEN tbd.amount * grm.sign_multiplier ELSE 0 END) as actual_profit,
+                    -- Current period budget profit
+                    SUM(CASE WHEN tbd.data_type = 'budget' 
+                        AND tbd.period_end_date = %s::date 
+                        THEN tbd.amount * grm.sign_multiplier ELSE 0 END) as budget_profit,
+                    -- Prior year profit
+                    SUM(CASE WHEN tbd.data_type = 'actual' 
+                        AND tbd.period_end_date = %s::date - INTERVAL '1 year'
+                        THEN tbd.amount * grm.sign_multiplier ELSE 0 END) as prior_year_profit
+                FROM trial_balance_data tbd
+                JOIN trial_balance_uploads tbu ON tbd.upload_id = tbu.upload_id
+                JOIN gl_report_mapping grm ON tbd.gl_code = grm.gl_code
+                WHERE tbu.company = %s
                 AND grm.report_type = 'profit_loss'
                 """
-                cursor.execute(pl_query, (period_end_date, company, data_type))
+                cursor.execute(pl_query, (period_end_date, period_end_date, period_end_date, company))
                 profit_result = cursor.fetchone()
-                net_profit = float(profit_result['net_profit']) if profit_result['net_profit'] else 0
+                
+                # Convert results to a dictionary for easier manipulation
+                data_dict = {row['line_id']: row for row in results}
                 
                 # Add profit to reserves (assuming reserves is line_id 2600)
                 reserves_line_id = 2600
-                if reserves_line_id in data:
-                    data[reserves_line_id] += net_profit
-                else:
-                    data[reserves_line_id] = net_profit
+                if reserves_line_id not in data_dict:
+                    data_dict[reserves_line_id] = {
+                        'line_id': reserves_line_id,
+                        'actual': 0,
+                        'budget': 0,
+                        'prior_year': 0,
+                        'prior_month': 0
+                    }
+                
+                # Add profits to reserves
+                if profit_result:
+                    data_dict[reserves_line_id]['actual'] += float(profit_result['actual_profit'] or 0)
+                    data_dict[reserves_line_id]['budget'] += float(profit_result['budget_profit'] or 0)
+                    data_dict[reserves_line_id]['prior_year'] += float(profit_result['prior_year_profit'] or 0)
+                
+                return list(data_dict.values())
+            
+            else:
+                raise ValueError(f"Unknown report type: {report_type}")
+            
+            # Convert the list of rows to a dictionary format
+            # This creates separate dictionaries for each data type
+            results = cursor.fetchall()
+            
+            # Return format that matches the original expectation
+            data = {
+                'actual': {},
+                'budget': {},
+                'prior_year': {},
+                'ytd_actual': {},
+                'ytd_budget': {},
+                'prior_ytd': {}
+            }
+            
+            for row in results:
+                line_id = row['line_id']
+                data['actual'][line_id] = float(row['actual'] or 0)
+                data['budget'][line_id] = float(row['budget'] or 0)
+                data['prior_year'][line_id] = float(row['prior_year'] or 0)
+                if report_type == 'profit_loss':
+                    data['ytd_actual'][line_id] = float(row['ytd_actual'] or 0)
+                    data['ytd_budget'][line_id] = float(row['ytd_budget'] or 0)
+                    data['prior_ytd'][line_id] = float(row['prior_ytd'] or 0)
+                elif report_type == 'balance_sheet':
+                    data['prior_month'] = data.get('prior_month', {})
+                    data['prior_month'][line_id] = float(row.get('prior_month', 0) or 0)
             
             return data
                   
