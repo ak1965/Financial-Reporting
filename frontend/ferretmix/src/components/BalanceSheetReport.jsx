@@ -2,13 +2,19 @@ import { useState, useEffect } from 'react';
 
 const BalanceSheetReport = () => {
   const [availablePeriods, setAvailablePeriods] = useState([]);
+  const [availableCompanies, setAvailableCompanies] = useState([]);
   const [selectedPeriod, setSelectedPeriod] = useState('');
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [selectedCompany, setSelectedCompany] = useState('');
 
   useEffect(() => {
     fetchAvailablePeriods();
+  }, []);
+
+  useEffect(() => {
+    fetchAvailableCompanies();
   }, []);
 
   const fetchAvailablePeriods = async () => {
@@ -20,6 +26,17 @@ const BalanceSheetReport = () => {
       setError('Failed to fetch available periods');
     }
   };
+
+  const fetchAvailableCompanies = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/reports/available-companies');
+      const data = await response.json();
+      setAvailableCompanies(data.companies);
+    } catch (error) {
+      setError('Failed to fetch available companies');
+    }
+  };
+
 
   const generateReport = async () => {
     console.log("🔍 generateReport called with period:", selectedPeriod);
@@ -95,6 +112,21 @@ const BalanceSheetReport = () => {
   return (
     <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
       <h2>Balance Sheet</h2>
+      <div>
+          <label>Which Company do you want?</label>
+          <select
+            value={selectedCompany}
+            style={{ marginLeft: '10px', padding: '8px', minWidth: '200px' }}
+            onChange={(e) => setSelectedCompany(e.target.value)}
+          >
+            <option value="">Choose Company...</option>
+            {availableCompanies.map((company, index) => (
+              <option key={index} value={company}>
+                {company}
+              </option>
+            ))}
+          </select>
+        </div>
       
       {/* Period Selection */}
       <div style={{ marginBottom: '30px', display: 'flex', gap: '20px', alignItems: 'end' }}>

@@ -174,7 +174,7 @@ const handleMappingChange = async (glCode, lineId, signMultiplier) => {
           </select>
         </div>
 
-        <div>
+        {/* <div>
           <label>Report Type:</label>
           <select 
             value={reportType} 
@@ -184,16 +184,39 @@ const handleMappingChange = async (glCode, lineId, signMultiplier) => {
             <option value="profit_loss">Profit & Loss</option>
             <option value="balance_sheet">Balance Sheet</option>
           </select>
-        </div>
+        </div> */}
       </div>
 
       {/* Mapping Table */}
       {selectedTB && glCodes.length > 0 && (
-        <div>
-          <h3>Map GL Codes to Report Lines</h3>
+  <div>
+    {/* Header with title and report type selector */}
+    <div style={{ 
+      display: 'flex', 
+      justifyContent: 'space-between', 
+      alignItems: 'center',
+      marginBottom: '20px'
+    }}>
+      <h3 style={{ margin: 0 }}>Map GL Codes to Report Lines</h3>
+      
+      <div>
+        <label>Report Type:</label>
+        <select 
+          value={reportType} 
+          onChange={(e) => setReportType(e.target.value)}
+          style={{ marginLeft: '10px', padding: '5px' }}
+        >
+          <option value="profit_loss">Profit & Loss</option>
+          <option value="balance_sheet">Balance Sheet</option>
+        </select>
+      </div>
+    </div>
           {loading ? (
             <p>Loading GL codes...</p>
           ) : (
+
+            
+
             <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
               <thead>
                 <tr style={{ backgroundColor: '#f5f5f5' }}>

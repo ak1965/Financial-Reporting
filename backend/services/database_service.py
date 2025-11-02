@@ -193,7 +193,7 @@ def get_uploaded_trial_balances():
     finally:
         conn.close()
 
-def get_trial_balance_gl_codes(upload_id):
+def get_trial_balance_gl_codes(upload_id, data_type='actual'):
     """Get all GL codes from a specific trial balance"""
     conn = get_db_connection()
     try:
@@ -202,9 +202,10 @@ def get_trial_balance_gl_codes(upload_id):
             SELECT gl_code, account_name, amount
             FROM trial_balance_data 
             WHERE upload_id = %s
+            AND data_type = %s
             ORDER BY gl_code
             """
-            cursor.execute(query, (upload_id,))
+            cursor.execute(query, (upload_id, data_type))
             return cursor.fetchall()
     except Exception as e:
         raise Exception(f"Failed to get GL codes: {str(e)}")
@@ -333,6 +334,26 @@ def get_available_periods(company):
                 WHERE company = %s 
                 AND processing_status = 'complete'
             )
+            ORDER BY period_end_date DESC
+            """
+            cursor.execute(query, (company,))
+            results = cursor.fetchall()
+            return [row['period_end_date'].isoformat() for row in results]
+    except Exception as e:
+        raise Exception(f"Failed to get available periods: {str(e)}")
+    finally:
+        conn.close()
+
+def get_available_periods_delete(company):
+    """Get list of available reporting periods for a specific company - ACTUAL data only"""
+    conn = get_db_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            query = """
+            SELECT DISTINCT period_end_date
+            FROM trial_balance_uploads           
+            WHERE company = %s 
+            AND processing_status = 'complete'
             ORDER BY period_end_date DESC
             """
             cursor.execute(query, (company,))

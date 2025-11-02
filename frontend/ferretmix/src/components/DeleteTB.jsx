@@ -21,7 +21,7 @@ export default function DeleteTB() {
 
   const fetchAvailablePeriods = async () => {
     try {
-      const response = await fetch(`http://localhost:5000/api/reports/available-periods?company=${selectedCompany}`);
+      const response = await fetch(`http://localhost:5000/api/reports/available-periods-delete?company=${selectedCompany}`);
       const data = await response.json();
       setAvailablePeriods(data.periods || []);
     } catch (error) {

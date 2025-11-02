@@ -3,6 +3,8 @@ from services.report_generator import generate_profit_loss_report
 from services.report_generator import generate_balance_sheet_report
 from services.database_service import get_available_periods
 from services.database_service import get_available_companies
+from services.database_service import get_available_periods_delete
+
 
 reports_bp = Blueprint('reports', __name__)
 
@@ -57,6 +59,22 @@ def get_available_periods_route():
         return jsonify({'periods': periods})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@reports_bp.route('/reports/available-periods-delete', methods=['GET'])
+def get_available_periods_delete_route():
+    """Get list of available reporting periods"""
+    try:
+        company = request.args.get('company')
+        
+        if not company:
+            return jsonify({'error': 'Company parameter is required'}), 400
+        
+        periods = get_available_periods_delete(company)
+        return jsonify({'periods': periods})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 
 @reports_bp.route('/reports/available-companies', methods=['GET'])
 def get_available_companies_route():
