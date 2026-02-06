@@ -9,17 +9,24 @@ const BalanceSheetReport = () => {
   const [error, setError] = useState('');
   const [selectedCompany, setSelectedCompany] = useState('');
 
-  useEffect(() => {
-    fetchAvailablePeriods();
-  }, []);
 
   useEffect(() => {
     fetchAvailableCompanies();
   }, []);
 
+  useEffect(() => {
+  if (selectedCompany) {
+    fetchAvailablePeriods();
+  } else {
+    setAvailablePeriods([]); // Clear periods if no company
+    setSelectedPeriod(''); // Reset selected period
+  }
+}, [selectedCompany]); // ← This is the key part!
+  
+
   const fetchAvailablePeriods = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/reports/available-periods');
+      const response = await fetch(`http://localhost:5000/api/reports/available-periods?company=${selectedCompany}`);
       const data = await response.json();
       setAvailablePeriods(data.periods || []);
     } catch (error) {
@@ -110,13 +117,15 @@ const BalanceSheetReport = () => {
   };
 
   return (
-    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
+    <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }}>
+      
       <h2>Balance Sheet</h2>
+      <div style={{ marginBottom: '30px', display: 'flex', gap: '20px', alignItems: 'end' }}>
       <div>
           <label>Which Company do you want?</label>
           <select
             value={selectedCompany}
-            style={{ marginLeft: '10px', padding: '8px', minWidth: '200px' }}
+            style={{ marginLeft: '10px', padding: '8px', minWidth: '200px' }}            
             onChange={(e) => setSelectedCompany(e.target.value)}
           >
             <option value="">Choose Company...</option>
@@ -127,9 +136,13 @@ const BalanceSheetReport = () => {
             ))}
           </select>
         </div>
+       
       
       {/* Period Selection */}
-      <div style={{ marginBottom: '30px', display: 'flex', gap: '20px', alignItems: 'end' }}>
+      
+      
+      
+        {selectedCompany && (
         <div>
           <label>Select Period:</label>
           <select 
@@ -148,8 +161,12 @@ const BalanceSheetReport = () => {
               </option>
             ))}
           </select>
-        </div>
+        </div>)
+        }
+         </div>
 
+         
+        
         <button 
           onClick={generateReport}
           disabled={!selectedPeriod || loading}
@@ -164,7 +181,7 @@ const BalanceSheetReport = () => {
         >
           {loading ? 'Generating...' : 'Generate Report'}
         </button>
-      </div>
+      
 
       {/* Error Display */}
       {error && (
