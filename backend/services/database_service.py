@@ -199,7 +199,7 @@ def get_trial_balance_gl_codes(upload_id, data_type='actual'):
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
             query = """
-            SELECT gl_code, account_name, amount
+            SELECT DISTINCT gl_code, account_name
             FROM trial_balance_data 
             WHERE upload_id = %s
             AND data_type = %s

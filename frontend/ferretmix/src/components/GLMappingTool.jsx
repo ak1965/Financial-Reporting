@@ -173,18 +173,7 @@ const handleMappingChange = async (glCode, lineId, signMultiplier) => {
             ))}
           </select>
         </div>
-
-        {/* <div>
-          <label>Report Type:</label>
-          <select 
-            value={reportType} 
-            onChange={(e) => setReportType(e.target.value)}
-            style={{ marginLeft: '10px', padding: '5px' }}
-          >
-            <option value="profit_loss">Profit & Loss</option>
-            <option value="balance_sheet">Balance Sheet</option>
-          </select>
-        </div> */}
+       
       </div>
 
       {/* Mapping Table */}
@@ -222,7 +211,7 @@ const handleMappingChange = async (glCode, lineId, signMultiplier) => {
                 <tr style={{ backgroundColor: '#f5f5f5' }}>
                   <th style={{ padding: '10px', border: '1px solid #ddd' }}>GL Code</th>
                   <th style={{ padding: '10px', border: '1px solid #ddd' }}>Account Name</th>
-                  <th style={{ padding: '10px', border: '1px solid #ddd' }}>Amount</th>
+                  {/* <th style={{ padding: '10px', border: '1px solid #ddd' }}>Amount</th> */}
                   <th style={{ padding: '10px', border: '1px solid #ddd' }}>Report Line</th>
                   <th style={{ padding: '10px', border: '1px solid #ddd' }}>Action</th>
                 </tr>
@@ -236,9 +225,13 @@ const handleMappingChange = async (glCode, lineId, signMultiplier) => {
                     <td style={{ padding: '10px', border: '1px solid #ddd' }}>
                       {glCode.account_name}
                     </td>
-                    <td style={{ padding: '10px', border: '1px solid #ddd', textAlign: 'right' }}>
-                      {glCode.amount?.toLocaleString()}
-                    </td>
+                    <td style={{ padding: '10px', border: '1px solid #ddd', textAlign: 'left' }}>
+                      {existingMappings[glCode.gl_code] ? 
+                      existingMappings[glCode.gl_code].line_id || 
+                      existingMappings[glCode.gl_code].category_name || 
+                     'Mapped' 
+                    : 'Not mapped'}
+                  </td>
                     <td style={{ padding: '10px', border: '1px solid #ddd' }}>
                       <select
                         value={existingMappings[glCode.gl_code] ? 
